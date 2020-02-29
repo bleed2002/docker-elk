@@ -1,76 +1,145 @@
 version: '3.2'
 
 services:
-  elasticsearch:
+  es01:
+    container_name: es01
     build:
       context: elasticsearch/
       args:
         ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
-      - type: bind
-        source: ./elasticsearch/config/elasticsearch.yml
-        target: /usr/share/elasticsearch/config/elasticsearch.yml
-        read_only: true
-      - type: volume
-        source: elasticsearch
-        target: /usr/share/elasticsearch/data
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es01-data:/usr/share/elasticsearch/data
     ports:
       - "9200:9200"
-      - "9300:9300"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
-      # Use single node discovery in order to disable production mode and avoid bootstrap checks
-      # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
-      discovery.type: single-node
+      - node.name=es01
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     networks:
-      - elk
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9200'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-01.ncserver.cloud'
+
+  es02:
+    container_name: es02
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es02-data:/usr/share/elasticsearch/data
+    ports:
+      - "9201:9201"
+    environment:
+      - node.name=es02
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9201'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-02.ncserver.cloud'
+
+  es03:
+    container_name: es03
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es03-data:/usr/share/elasticsearch/data
+    ports:
+      - "9202:9202"
+    environment:
+      - node.name=es03
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9202'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-03.ncserver.cloud'
 
   logstash:
+    container_name: logstash
     build:
       context: logstash/
       args:
         ELK_VERSION: $ELK_VERSION
     volumes:
-      - type: bind
-        source: ./logstash/config/logstash.yml
-        target: /usr/share/logstash/config/logstash.yml
-        read_only: true
-      - type: bind
-        source: ./logstash/pipeline
-        target: /usr/share/logstash/pipeline
-        read_only: true
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      # - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
     ports:
       - "5000:5000/tcp"
       - "5000:5000/udp"
+      - "5044:5044"
       - "9600:9600"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
     networks:
-      - elk
+      - entrypoint
     depends_on:
-      - elasticsearch
+      - es01
 
   kibana:
+    container_name: kibana
     build:
       context: kibana/
       args:
         ELK_VERSION: $ELK_VERSION
     volumes:
-      - type: bind
-        source: ./kibana/config/kibana.yml
-        target: /usr/share/kibana/config/kibana.yml
-        read_only: true
+      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+    depends_on:
+      - es01
     ports:
       - "5601:5601"
     networks:
-      - elk
-    depends_on:
-      - elasticsearch
+      - entrypoint
+    environment:
+      - "ELASTICSEARCH_URL=http://es01:9200"
+      - "ELASTICSEARCH_HOSTS=http://es01:9200"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=5601'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:kibana.ncserver.cloud'
 
 networks:
-  elk:
-    driver: bridge
+  entrypoint:
+    external: true
 
 volumes:
-  elasticsearch:
+  es01-data:
+  es02-data:
+  es03-data:
