@@ -2,12 +2,19 @@
 ## Default Kibana configuration from Kibana base image.
 ## https://github.com/elastic/kibana/blob/master/src/dev/build/tasks/os_packages/docker_generator/templates/kibana_yml.template.js
 #
-server.name: kibana.ncserver.cloud
-server.host: "0"
-xpack.monitoring.ui.container.elasticsearch.enabled: true
 
-xpack.reporting.kibanaServer.port: 443
-xpack.reporting.kibanaServer.protocol: https
-xpack.reporting.kibanaServer.hostname: kibana.ncserver.cloud
+# see docker-compose environment vars
+# server.name:
+# server.host: 0.0.0.0
 
-# elasticsearch.hosts: [ "http://es01:9200" ]
+# elasticsearch.hosts: [ "https://es01:9200" ]
+# monitoring.ui.container.elasticsearch.enabled: true
+
+## X-Pack security credentials
+#
+# elasticsearch.username: elastic
+# elasticsearch.password: changeme
+
+# xpack.reporting.kibanaServer.port: 443
+# xpack.reporting.kibanaServer.protocol: https
+# xpack.reporting.kibanaServer.hostname:
