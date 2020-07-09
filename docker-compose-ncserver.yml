@@ -1,0 +1,206 @@
+version: '3.2'
+
+services:
+  es01:
+    container_name: es01
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es01-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
+    ports:
+      - "9200:9200"
+    environment:
+      - node.name=es01
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es01/es01.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es01/es01.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es01/es01.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es01/es01.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: curl --cacert $CERTS_DIR/ca/ca.crt -s https://localhost:9200 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9200'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-01.ncserver.cloud'
+
+  es02:
+    container_name: es02
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es02-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
+    ports:
+      - "9201:9201"
+    environment:
+      - node.name=es02
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es02/es02.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es02/es02.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es02/es02.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es02/es02.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9201'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-02.ncserver.cloud'
+
+  es03:
+    container_name: es03
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es03-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
+    ports:
+      - "9202:9202"
+    environment:
+      - node.name=es03
+      - cluster.name=ncserver-es-cluster
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es03/es03.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es03/es03.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es03/es03.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es03/es03.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - entrypoint
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9202'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-03.ncserver.cloud'
+
+  wait_until_ready:
+    image: docker.elastic.co/elasticsearch/elasticsearch:$ELK_VERSION
+    command: /usr/bin/true
+    depends_on:
+      - es01
+
+  #  logstash:
+  #    container_name: logstash
+  #    build:
+  #      context: logstash/
+  #      args:
+  #        ELK_VERSION: $ELK_VERSION
+  #    volumes:
+  #      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+  #      # - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+  #    ports:
+  #      - "5000:5000/tcp"
+  #      - "5000:5000/udp"
+  #      - "5044:5044"
+  #      - "9600:9600"
+  #    environment:
+  #      - "ELASTICSEARCH_URL=https://es01:9200"
+  #      - "ELASTICSEARCH_HOSTS=https://es01:9200"
+  #      - "ELASTICSEARCH_USERNAME=logstash_system"
+  #      - "ELASTICSEARCH_PASSWORD=gjKK3MQVI0TaBepDEzcQ"
+  #      - "LS_JAVA_OPTS=-Xmx256m -Xms256m"
+  #      - "LS_CACERT_FILE=${CERTS_DIR}/ca/ca.crt"
+  #    networks:
+  #      - entrypoint
+  #    depends_on:
+  #      - es01
+
+  kibana:
+    container_name: kibana
+    build:
+      context: kibana/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    volumes:
+      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      - es-certs:$CERTS_DIR
+    depends_on:
+      - es01
+    networks:
+      - entrypoint
+    environment:
+      - "ELASTICSEARCH_URL=https://es01:9200"
+      - "ELASTICSEARCH_HOSTS=https://es01:9200"
+      - "ELASTICSEARCH_USERNAME=kibana"
+      - "ELASTICSEARCH_PASSWORD=fGxon2HQX7FmN4yj6bY4"
+      - "ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=${CERTS_DIR}/ca/ca.crt"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=5601'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:kibana.ncserver.cloud'
+
+networks:
+  entrypoint:
+    external: true
+
+volumes:
+  es-certs:
+  es01-data:
+  es02-data:
+  es03-data:
