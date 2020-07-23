@@ -1,76 +1,191 @@
 version: '3.2'
 
 services:
-  elasticsearch:
+  es01:
+    container_name: es01
     build:
       context: elasticsearch/
       args:
         ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
-      - type: bind
-        source: ./elasticsearch/config/elasticsearch.yml
-        target: /usr/share/elasticsearch/config/elasticsearch.yml
-        read_only: true
-      - type: volume
-        source: elasticsearch
-        target: /usr/share/elasticsearch/data
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es01-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
     ports:
       - "9200:9200"
-      - "9300:9300"
     environment:
-      ES_JAVA_OPTS: "-Xmx256m -Xms256m"
-      ELASTIC_PASSWORD: changeme
-      # Use single node discovery in order to disable production mode and avoid bootstrap checks
-      # see https://www.elastic.co/guide/en/elasticsearch/reference/current/bootstrap-checks.html
-      discovery.type: single-node
+      - node.name=es01
+      - cluster.name=elk-cluster
+      - network.host=0.0.0.0
+      - discovery.seed_hosts=es02,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.monitoring.collection.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es01/es01.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es01/es01.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es01/es01.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es01/es01.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    healthcheck:
+      test: curl --cacert $CERTS_DIR/ca/ca.crt -s https://localhost:9200 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 30s
+      timeout: 10s
+      retries: 5
     networks:
-      - elk
+      - edelweiss_net
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9200'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic.banovo.cloud'
 
-  logstash:
+  es02:
+    container_name: es02
     build:
-      context: logstash/
+      context: elasticsearch/
       args:
         ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
     volumes:
-      - type: bind
-        source: ./logstash/config/logstash.yml
-        target: /usr/share/logstash/config/logstash.yml
-        read_only: true
-      - type: bind
-        source: ./logstash/pipeline
-        target: /usr/share/logstash/pipeline
-        read_only: true
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es02-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
     ports:
-      - "5000:5000/tcp"
-      - "5000:5000/udp"
-      - "9600:9600"
+      - "9201:9201"
     environment:
-      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+      - node.name=es02
+      - cluster.name=elk-cluster
+      - network.host=0.0.0.0
+      - discovery.seed_hosts=es01,es03
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.monitoring.collection.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es02/es02.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es02/es02.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es02/es02.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es02/es02.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     networks:
-      - elk
+      - edelweiss_net
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9201'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-02.banovo.cloud'
+
+  es03:
+    container_name: es03
+    build:
+      context: elasticsearch/
+      args:
+        ELK_VERSION: $ELK_VERSION
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - ./elasticsearch/config/elasticsearch.yml:/usr/share/elasticsearch/config/elasticsearch.yml:ro
+      - es03-data:/usr/share/elasticsearch/data
+      - es-certs:$CERTS_DIR
+    ports:
+      - "9202:9202"
+    environment:
+      - node.name=es03
+      - cluster.name=elk-cluster
+      - network.host=0.0.0.0
+      - discovery.seed_hosts=es01,es02
+      - cluster.initial_master_nodes=es01,es02,es03
+      - bootstrap.memory_lock=true
+      - ELASTIC_PASSWORD=$ELASTIC_PASSWORD
+      - xpack.license.self_generated.type=trial
+      - xpack.security.enabled=true
+      - xpack.monitoring.collection.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=$CERTS_DIR/es03/es03.key
+      - xpack.security.http.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.http.ssl.certificate=$CERTS_DIR/es03/es03.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.certificate_authorities=$CERTS_DIR/ca/ca.crt
+      - xpack.security.transport.ssl.certificate=$CERTS_DIR/es03/es03.crt
+      - xpack.security.transport.ssl.key=$CERTS_DIR/es03/es03.key
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    networks:
+      - edelweiss_net
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=9202'
+      - 'traefik.protocol=https'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:elastic-03.banovo.cloud'
+
+  wait_until_ready:
+    image: docker.elastic.co/elasticsearch/elasticsearch:$ELK_VERSION
+    command: /usr/bin/true
     depends_on:
-      - elasticsearch
+      - es01
 
   kibana:
+    container_name: kibana
     build:
       context: kibana/
       args:
         ELK_VERSION: $ELK_VERSION
     volumes:
-      - type: bind
-        source: ./kibana/config/kibana.yml
-        target: /usr/share/kibana/config/kibana.yml
-        read_only: true
-    ports:
-      - "5601:5601"
-    networks:
-      - elk
+      - ./kibana/config/kibana.yml:/usr/share/kibana/config/kibana.yml:ro
+      - es-certs:$CERTS_DIR
     depends_on:
-      - elasticsearch
+      - es01
+    networks:
+      - edelweiss_net
+    environment:
+      - "server.name=kibana.banovo.cloud"
+      - "server.host=0.0.0.0"
+      - "xpack.reporting.kibanaServer.port=443"
+      - "xpack.reporting.kibanaServer.protocol=https"
+      - "monitoring.ui.container.elasticsearch.enabled=true"
+      - "ELASTICSEARCH_URL=https://es01:9200"
+      - "ELASTICSEARCH_HOSTS=https://es01:9200"
+      - "ELASTICSEARCH_USERNAME=kibana_system"
+      - "ELASTICSEARCH_PASSWORD=$KIBANA_PASSWORD"
+      - "ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=${CERTS_DIR}/ca/ca.crt"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.port=5601'
+      - 'traefik.frontend.passHostHeader=true'
+      - 'traefik.frontend.rule=Host:kibana.banovo.cloud'
 
 networks:
-  elk:
-    driver: bridge
+  edelweiss_net:
+    external: true
 
 volumes:
-  elasticsearch:
+  es-certs:
+  es01-data:
+  es02-data:
+  es03-data:

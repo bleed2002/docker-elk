@@ -4,10 +4,10 @@
 #
 
 # see docker-compose environment vars
-# server.name:
-# server.host: 0.0.0.0
+server.name: kibana.banovo.cloud
+server.host: 0.0.0.0
 
-# elasticsearch.hosts: [ "https://es01:9200" ]
+elasticsearch.hosts: [ "https://es01:9200" ]
 # monitoring.ui.container.elasticsearch.enabled: true
 
 ## X-Pack security credentials
@@ -15,6 +15,6 @@
 # elasticsearch.username: elastic
 # elasticsearch.password: changeme
 
-# xpack.reporting.kibanaServer.port: 443
-# xpack.reporting.kibanaServer.protocol: https
-# xpack.reporting.kibanaServer.hostname:
+xpack.reporting.kibanaServer.port: 443
+xpack.reporting.kibanaServer.protocol: https
+xpack.reporting.kibanaServer.hostname: kibana.banovo.cloud
