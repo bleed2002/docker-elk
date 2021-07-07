@@ -8,7 +8,6 @@ server.name: kibana.banovo.cloud
 server.host: 0.0.0.0
 
 elasticsearch.hosts: [ "https://es01:9200", "https://es02:9200", "https://es03:9200" ]
-monitoring.ui.container.elasticsearch.enabled: true
 
 ## X-Pack security credentials
 #
@@ -17,5 +16,14 @@ monitoring.ui.container.elasticsearch.enabled: true
 xpack.reporting.kibanaServer.port: 443
 xpack.reporting.kibanaServer.protocol: https
 xpack.reporting.kibanaServer.hostname: kibana.banovo.cloud
+monitoring.ui.container.elasticsearch.enabled: true
+
 xpack.security.enabled: true
 xpack.encryptedSavedObjects.encryptionKey: "mEqtyrj9pKvgCcZMWxymdgTQweo26vaJ"
+xpack.fleet.enabled: true
+#xpack.fleet.registryUrl: "http://package-registry:8080"
+xpack.fleet.agents.enabled: true
+xpack.fleet.agents.elasticsearch.host: "https://elastic.banovo.cloud:443"
+xpack.fleet.agents.kibana.host: "https://kibana.banovo.cloud:443"
+xpack.fleet.agents.tlsCheckDisabled: false
+
